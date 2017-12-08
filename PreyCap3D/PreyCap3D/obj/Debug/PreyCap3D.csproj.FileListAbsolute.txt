@@ -1,0 +1,13 @@
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\PreyCap3D.exe.config
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\obj\Debug\PreyCap3D.csprojResolveAssemblyReference.cache
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\cvextern.dll
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\msvcp120.dll
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\msvcr120.dll
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\opencv_ffmpeg310_64.dll
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\PreyCap3D.exe
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\PreyCap3D.pdb
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\Emgu.CV.World.dll
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\FlyCapture2Managed_v110.dll
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\bin\Debug\Emgu.CV.World.xml
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\obj\Debug\PreyCap3D.exe
+c:\users\andrew d bolton\documents\visual studio 2013\Projects\PreyCap3D\PreyCap3D\obj\Debug\PreyCap3D.pdb
