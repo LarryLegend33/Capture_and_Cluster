@@ -1,44 +1,48 @@
 ﻿import cv2
 import numpy as np
 import random
-from matplotlib import pyplot as pl
 import pickle
-import toolz 
+import toolz
 import math
 import scipy.ndimage
 from scipy.stats import mode
+from sklearn.metrics.pairwise import pairwise_distances
 import scipy.signal
 from sklearn.neighbors.kde import KernelDensity
-import seaborn
 import os
+import matplotlib
+matplotlib.use('agg')
+from matplotlib import pyplot as pl
+import seaborn
+
 
 #tail isn't getting found on every frame. i think it's probably calling a threshold that is too small. 
 
 
 class Variables:
 
-    def __init__(self):
-        self.pitch = []
-        self.phileft = []
-        self.phiright = []
-        self.leftxy = []
-        self.rightxy = []
-        self.tailangle = []
-        self.headingangle = []
-        self.swimbcoords_top = []
-        self.swimbcoords_side = []
-        self.x = []
-        self.y = []
-        self.z = []
-        self.x2 = []
-        self.vectV = []
-        self.frametimes = []
-        self.bouttimes = []
-        self.hunt_inds = []
-        self.abort_inds = []
-        self.low_res_x = []
-        self.low_res_y = []
-        self.low_res_z = []
+ def __init__(self):
+     self.pitch = []
+     self.phileft = []
+     self.phiright = []
+     self.leftxy = []
+     self.rightxy = []
+     self.tailangle = []
+     self.headingangle = []
+     self.swimbcoords_top = []
+     self.swimbcoords_side = []
+     self.x = []
+     self.y = []
+     self.z = []
+     self.x2 = []
+     self.vectV = []
+     self.frametimes = []
+     self.bouttimes = []
+     self.hunt_inds = []
+     self.abort_inds = []
+     self.low_res_x = []
+     self.low_res_y = []
+     self.low_res_z = []
 
 #Simple function that replaces NaNs in data with previous non-nan value. 
 
@@ -241,7 +245,6 @@ class Variables:
    
 
 
-
 #FUNCTIONS FOR MAIN TO USE. 
 
 #Backgrounds are provided from flparse2 as an array. Brmean subtraction makes it so the average intensity of a given image is equated to the background. 
@@ -254,18 +257,34 @@ def brsub((ret,im),background,brmean):
 
 #Contourfinder finds the three largest contours in the top plane (eye1, eye2, swimb) by dynamically thresholding each background subtracted image. The dynamic thresholding is accomplished by recursively passing lower values of the threshval to contourfinder if 3 contours are not found. On the side, recursively decreases threshval until one contour is found that is approximately the size of an eye. Current byarea parameters are good for the 1888x1888 setup.  
  
-def contourfinder(im,threshval,toporside):
+def contourfinder(im,threshval,toporside, fishcenter):
    if toporside == 'top':
        r,th = cv2.threshold(im,threshval,255,cv2.THRESH_BINARY) 
        rim, contours, hierarchy = cv2.findContours(th,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
        byarea = [cv2.convexHull(cnt) for cnt in sorted(contours, key = cv2.contourArea, reverse = True)]
-       contcomp = [x for x in byarea if 300 < cv2.contourArea(x) < 800] #lower bound was 80, upper 500 for old movies. 700 is too small for a full sized swim bladder. Use 800. Eyes are ~500. 
+#       contcomp = [x for x in byarea if 300 < cv2.contourArea(x) < 800] #lower bound was 80, upper 500 for old movies. 700 is too small for a full sized swim bladder. Use 800. Eyes are ~500.       
+       contcomp = [x for x in byarea if 300 < cv2.contourArea(x) < 500]
        if len(contcomp) < 2:
-           return contourfinder(im,threshval-1,'top')
-       if len(contcomp) == 2:
-           return contcomp
-       if len(contcomp) > 2:
-           return []
+           return contourfinder(im,threshval-1,'top', fishcenter)          
+       if len(contcomp) >= 2:
+           cont_coords = np.array([cv2.minEnclosingCircle(c)[0] for c in contcomp])
+           pwd = pairwise_distances(cont_coords)
+           eye_inds = np.where((pwd > 20) & (pwd < 45))
+           if eye_inds[0].shape[0] == 2:
+               eye1 = [contcomp[eye_inds[0][0]], cont_coords[eye_inds[0][0]][0], cont_coords[eye_inds[0][0]][1]]
+               eye2 = [contcomp[eye_inds[0][1]], cont_coords[eye_inds[0][1]][0], cont_coords[eye_inds[0][1]][1]]
+               dist_eye1_to_center = pairwise_distances(np.array([fishcenter, cont_coords[eye_inds[0][0]]]))[0][1]
+               dist_eye2_to_center = pairwise_distances(np.array([fishcenter, cont_coords[eye_inds[0][1]]]))[0][1]
+               if (80 < dist_eye1_to_center < 150) and (80 < dist_eye2_to_center < 150):
+#                   print cv2.contourArea(eye1[0]), cv2.contourArea(eye2[0])
+                   return eye1, eye2
+               else:
+                   return contourfinder(im,threshval-1,'top', fishcenter)
+           elif len(contcomp) < 5:
+               return contourfinder(im,threshval-1,'top', fishcenter)
+           else:
+               return [], []
+              
    elif toporside == 'side':
        r,th = cv2.threshold(im,threshval,255,cv2.THRESH_BINARY) 
        rim, contours, hierarchy = cv2.findContours(th,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
@@ -277,26 +296,8 @@ def contourfinder(im,threshval,toporside):
        if threshval < 40: #just means you missed it. 
            return np.array([]),float('NaN'),float('NaN')
        else:
-           return contourfinder(im,threshval-1,'side')
+           return contourfinder(im,threshval-1,'side', fishcenter)
 
-
-# Three contours are returned from contourfinder, but whether they are an eye or a swimbladder is unknown. Since the distance between the two eyes should be shortest, this function assigns which contours are eyes and swimb. Also filters out contours from contourfinder that don't satisfy a general distance threshold for intereye or eye-> swimb distance. 
-
-def contourparser(contours):
-    if contours:
-        contour1,contour2 = contours[0:2]
-        (cnt1x,cnt1y),r = cv2.minEnclosingCircle(contour1)
-        (cnt2x,cnt2y),r = cv2.minEnclosingCircle(contour2)
-        dist12 = np.sqrt((cnt1x-cnt2x)**2 + (cnt1y-cnt2y)**2)
-        if 20 < dist12 < 50:
-            eye1 = [contour1,int(cnt1x),int(cnt1y)]
-            eye2 = [contour2,int(cnt2x),int(cnt2y)]
-        else:
-            eye1 = []
-            eye2 = []
-        return eye1,eye2
-    else:
-        return [],[]
 
 
 # This function assigns the eye as either the left or the right eye and then converts the angles so that the angle reflects degree of convergence (phi) from the vertical axis. 
@@ -551,8 +552,8 @@ def get_fish_data(data_directory):
   pitchvid = cv2.VideoCapture(data_directory + 'side_contrasted.AVI')
   framecount = int(top.get(fc))
   startframe = 0
-  endframe = framecount
-#  endframe = 100
+#  endframe = framecount
+  endframe = 5000
   epoch_boundaries = np.cumsum(np.load(data_directory + 'framecounts.npy'))
   ir_freq_by_epoch = np.load(data_directory + 'ir_freqs.npy')
   mode_index = np.load(data_directory + 'mode_indices.npy').tolist()
@@ -570,7 +571,7 @@ def get_fish_data(data_directory):
   tailcontvid = cv2.VideoWriter(data_directory + 'tailcontvid.AVI', fourcc, 60, (window,window), True)
   contvid = cv2.VideoWriter(data_directory + 'conts.AVI',fourcc, 60,(window,window),True)  
   sideconts = cv2.VideoWriter(data_directory + 'sideconts.AVI',fourcc,60,(1888,1888),True)
-  fishcenter = np.array([float('NaN'),float('NaN')])
+  fishcenter = np.array([float('NaN'),float('NaN'), float('NaN')])
   eye1,eye2 = [],[]
   fc_side = [float('NaN'),float('NaN')]
   fishlength_list = []
@@ -638,9 +639,12 @@ def get_fish_data(data_directory):
           continue          
       fishcenter, rad = cv2.minEnclosingCircle(contours_t[0]) 
       fishcenter_side, rad = cv2.minEnclosingCircle(contours_s[0])
+      fish_xy_moments = cv2.moments(contours_t[0])
+      fish_com_x = int(fish_xy_moments['m10']/fish_xy_moments['m00'])
+      fish_com_y = int(fish_xy_moments['m01']/fish_xy_moments['m00'])
       varbs.low_res_x.append(fishcenter[0])
       varbs.low_res_y.append(1888 - fishcenter[1])
-      varbs.low_res_z.append(1888 - fishcenter[2])
+      varbs.low_res_z.append(1888 - fishcenter_side[1])
 
       if low_res:
           varbs.nanify(['phileft','phiright','leftxy','rightxy', 'headingangle','tailangle', 'swimbcoords_top','z','x2','pitch'])
@@ -655,11 +659,15 @@ def get_fish_data(data_directory):
           break
     
       if not math.isnan(fishcenter[0]):
-         x_lb,y_lb = [lower_bound(fishcenter[0],window,topim.shape[1]),lower_bound(fishcenter[1],window,topim.shape[0])] 
+         x_lb,y_lb = [lower_bound(fishcenter[0],window,topim.shape[1]),lower_bound(fishcenter[1],window,topim.shape[0])]
+         com_ROI_x = fish_com_x - x_lb
+         com_ROI_y = fish_com_y - y_lb
          ROI = topim[y_lb:y_lb+window, x_lb:x_lb+window] 
          tailROI = tail[y_lb:y_lb+window, x_lb:x_lb+window]
-         conts = contourfinder(ROI,150,'top')
-         eye1,eye2 = contourparser(conts) 
+         swimb = np.array([com_ROI_x, com_ROI_y])         
+         eye1, eye2 = contourfinder(ROI,150,'top', swimb)
+       #  conts = contourfinder(ROI,150,'top')
+       #  eye1,eye2 = contourparser(conts) 
 
  
 
@@ -679,13 +687,14 @@ def get_fish_data(data_directory):
          continue
     
       ROIcolor = cv2.cvtColor(ROI,cv2.COLOR_GRAY2RGB)
-      low_res_xy_ROI = [fishcenter[0] - x_lb, fishcenter[1] - y_lb]
+#      low_res_xy_ROI = [fishcenter[0] - x_lb, fishcenter[1] - y_lb]
 #each return from contourparser is a list. first element is the contour itself, second is the xcoord, third is ycoord
       eye_midpoint = np.array([(eye1[1]+eye2[1])/2, (eye1[2]+eye2[2])/2])
-      scale_to_sb_position = .6
-      swimb = (scale_to_sb_position*(eye_midpoint - low_res_xy_ROI)) + low_res_xy_ROI     
+#      scale_to_sb_position = .6
+#      swimb = (scale_to_sb_position*(eye_midpoint - low_res_xy_ROI)) + low_res_xy_ROI
+
 #can choose to base heading off position of the sb plus eyes or eyes only.
-      heading_vector_sb = eye_midpoint - np.array([swimb[0],swimb[1]])        
+      heading_vector_sb = eye_midpoint - swimb
       heading_vector = np.cross([eye1[1] - eye2[1], eye1[2] - eye2[2], 0], [0, 0, 1])[0:2]
       if np.dot(heading_vector, heading_vector_sb) < 0:                                                                                            
         heading_vector *= -1         
@@ -708,9 +717,10 @@ def get_fish_data(data_directory):
 
  #Draw contours on frames to be written to movies to assure that you're seeing correct calls. 
 
-      cv2.circle(ROIcolor,tuple(leftxy),3,(255,255,0),-1) #yellow
-      cv2.circle(ROIcolor,tuple(rightxy),3,(0,255,255),-1) #light blue
-      cv2.circle(ROIcolor,tuple(swimb[1:]),3,(120,120,120),-1) # gray
+      cv2.circle(ROIcolor,tuple(np.array(leftxy).astype(np.int)),3,(255,255,0),-1) #yellow
+      cv2.circle(ROIcolor,tuple(np.array(rightxy).astype(np.int)),3,(0,255,255),-1) #light blue
+      cv2.circle(ROIcolor,tuple(np.array([com_ROI_x, com_ROI_y])),3,(255,0,255),-1) #light blue
+#      cv2.circle(ROIcolor,tuple(swimb.astype(np.int)),3,(120,120,120),-1) # gray
       if l_or_r: #l_or_r true means eye1 is the left eye. False means eye1 is the right eye. 
 #        cv2.drawContours(ROIcolor, [eye1[0]], 0,(255,0,0), 1)
 #        cv2.drawContours(ROIcolor, [eye2[0]], 0,(0,255,0), 1)
@@ -736,7 +746,7 @@ def get_fish_data(data_directory):
       if not math.isnan(fishcenter_side[0]):
         x2_lb,z_lb = [lower_bound(fishcenter_side[0],window,sideim.shape[1]),lower_bound(fishcenter_side[1],window,sideim.shape[0])]
         sideROI = sideim[z_lb:z_lb+window,x2_lb:x2_lb+window]
-        sidecontour,zpos,x2pos = contourfinder(sideROI,150,'side')
+        sidecontour,zpos,x2pos = contourfinder(sideROI,150,'side', fishcenter_side - np.array([x2_lb, z_lb]))
         #position of first contour to pop up that is within an area threshold in contourfinder. 
       if not sidecontour.any() or math.isnan(fishcenter_side[0]):
          varbs.nanify(['z','pitch','x2'])
@@ -770,8 +780,10 @@ def wrap_ir(dr):
 
    
 if __name__ == '__main__':
-    dr = raw_input("Enter Directory of Data: ")
+#    dr = raw_input("Enter Directory of Data: ")
+    dr = os.getcwd() + '/'
     wrap_ir(dr)
+
  
  
 
