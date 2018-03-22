@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -n 4
+#SBATCH -n 13
 #SBATCH -N 1
 #SBATCH -t 3600
 #SBATCH -p general
@@ -12,7 +12,7 @@ cp ~/Capture_and_Cluster/flparse_cluster.py /n/regal/engert_users/Andrew
 cp ~/Capture_and_Cluster/phinalIR_cluster_wik.py /n/regal/engert_users/Andrew
 cp ~/Capture_and_Cluster/phinalFL_cluster.py /n/regal/engert_users/Andrew
 cp ~/Capture_and_Cluster/cluster_init.py /n/regal/engert_users/Andrew
-cd /n/regal/engert_users/Andrew
+
 
 profile=job_${SLURM_JOB_ID}_$(hostname)
 ipython profile create ${profile}

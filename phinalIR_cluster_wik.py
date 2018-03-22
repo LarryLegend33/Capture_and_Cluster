@@ -552,8 +552,8 @@ def get_fish_data(data_directory):
   pitchvid = cv2.VideoCapture(data_directory + 'side_contrasted.AVI')
   framecount = int(top.get(fc))
   startframe = 0
-#  endframe = framecount
-  endframe = 5000
+  endframe = framecount
+#  endframe = 5000
   epoch_boundaries = np.cumsum(np.load(data_directory + 'framecounts.npy'))
   ir_freq_by_epoch = np.load(data_directory + 'ir_freqs.npy')
   mode_index = np.load(data_directory + 'mode_indices.npy').tolist()

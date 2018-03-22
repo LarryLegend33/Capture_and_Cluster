@@ -8,7 +8,7 @@ from itertools import repeat
 import scipy.ndimage
 from scipy.stats import mode
 from matplotlib import pyplot as pl
-from phinalIR_cluster import Variables
+from phinalIR_cluster_wik import Variables
 import pickle
 import os
 

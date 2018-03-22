@@ -9,7 +9,7 @@ from itertools import repeat
 import scipy.ndimage
 from scipy.stats import mode
 from matplotlib import pyplot as pl
-from phinalIR_cluster import wrap_ir
+from phinalIR_cluster_wik import wrap_ir
 from phinalFL_cluster import wrap_fluor
 import os
 

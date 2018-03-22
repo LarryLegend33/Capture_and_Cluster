@@ -1,0 +1,13 @@
+[ProfileCreate] Generating default config file: u'/n/home09/andrewdbolton/.ipython/profile_job_39725456_holy2a01108.rc.fas.harvard.edu/ipython_config.py'
+[ProfileCreate] Generating default config file: u'/n/home09/andrewdbolton/.ipython/profile_job_39725456_holy2a01108.rc.fas.harvard.edu/ipython_kernel_config.py'
+2018-03-20 11:15:36.654 [scheduler] Scheduler started [leastload]
+/n/home09/andrewdbolton/.conda/envs/adb/lib/python2.7/site-packages/matplotlib/__init__.py:1350: UserWarning:  This call to matplotlib.use() has no effect
+because the backend has already been chosen;
+matplotlib.use() must be called *before* pylab, matplotlib.pyplot,
+or matplotlib.backends is imported for the first time.
+
+  warnings.warn(_use_error_msg)
+Traceback (most recent call last):
+  File "cluster_init.py", line 37, in <module>
+    r1 = job5.apply_async(run_flparse, os.getcwd() + "/Fish11/")
+NameError: name 'job5' is not defined
