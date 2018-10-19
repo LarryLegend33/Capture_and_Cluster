@@ -1,1 +1,1 @@
-find . -type f -name slurm\* -exec rm {} \;
+find ~/Capture_and_Cluster -type f -name slurm\* -exec rm {} \;

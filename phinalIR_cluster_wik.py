@@ -263,7 +263,8 @@ def contourfinder(im,threshval,toporside, fishcenter):
        rim, contours, hierarchy = cv2.findContours(th,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE)
        byarea = [cv2.convexHull(cnt) for cnt in sorted(contours, key = cv2.contourArea, reverse = True)]
 #       contcomp = [x for x in byarea if 300 < cv2.contourArea(x) < 800] #lower bound was 80, upper 500 for old movies. 700 is too small for a full sized swim bladder. Use 800. Eyes are ~500.       
-       contcomp = [x for x in byarea if 300 < cv2.contourArea(x) < 500]
+#switched from 500 upper bound to 800 9/25/2018
+       contcomp = [x for x in byarea if 300 < cv2.contourArea(x) < 800]
        if len(contcomp) < 2:
            return contourfinder(im,threshval-1,'top', fishcenter)          
        if len(contcomp) >= 2:
@@ -279,6 +280,8 @@ def contourfinder(im,threshval,toporside, fishcenter):
 #                   print cv2.contourArea(eye1[0]), cv2.contourArea(eye2[0])
                    return eye1, eye2
                else:
+                   if len(contcomp) >= 5:
+                       return [], []
                    return contourfinder(im,threshval-1,'top', fishcenter)
            elif len(contcomp) < 5:
                return contourfinder(im,threshval-1,'top', fishcenter)
@@ -506,13 +509,13 @@ def pitchfinder_rect(img,zcoord,x2coord, phi, fishlen,fish):
       if fishlen < mag_fish:
         fishlen = mag_fish
         fishlength = mag_fish
-      pitch = (float(mag_fish)/fishlen)*90
+      pitch = np.degrees(np.arcsin((float(mag_fish)/fishlen)))
       return im, pitch, fishlength
     elif gamma < 0 and not math.isnan(fishlen):
       if fishlen < mag_fish:
         fishlen = mag_fish
         fishlength = mag_fish
-      pitch = (float(mag_fish)/fishlen)*-90
+      pitch = -1*np.degrees(np.arcsin((float(mag_fish)/fishlen)))
       return im, pitch, fishlength
     else:
       return im, float('NaN'),fishlength 
@@ -535,6 +538,12 @@ def pitchfinder_rect(img,zcoord,x2coord, phi, fishlen,fish):
 
 
 # MAINLINE
+def fix_blackline(im):
+   cols_to_replace = [833, 1056, 1135, 1762, 1489]
+   for c in cols_to_replace:
+      col_replacement = [int(np.mean([a,b])) for a,b in zip(im[:, c-1],im[:, c+1])]
+      im[:, c] = col_replacement
+   return im
 
 
 def get_fish_data(data_directory):
@@ -617,6 +626,7 @@ def get_fish_data(data_directory):
    
     else:    
       topim = brsub((top.read()),ir_t_br,brmean_t)
+      topim = fix_blackline(topim)
       sideim = brsub((side.read()),ir_s_br,brmean_s)
       r,pitchframe = pitchvid.read() #reads from high contrast side video
       r, tail = tailvid.read() #reads from high contrast top video
@@ -780,27 +790,6 @@ def wrap_ir(dr):
 
    
 if __name__ == '__main__':
-#    dr = raw_input("Enter Directory of Data: ")
-    dr = os.getcwd() + '/'
+    dr = raw_input("Enter Directory of Data: ")
+#    dr = os.getcwd() + '/'
     wrap_ir(dr)
-
- 
- 
-
-
-
-
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-

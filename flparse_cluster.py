@@ -19,13 +19,12 @@ import os
 #this function just fixes the line that is out on the camera. 
 
 def fix_blackline(im):
-   col_replacement = [int(np.mean([a,b])) for a,b in zip(im[:,1488],im[:,1490])] 
-   col_replacement2 = [int(np.mean([a,b])) for a,b in zip(im[:,1761],im[:,1763])]
-   im[:,1489] = col_replacement
-   im[:, 1762] = col_replacement2
-  # pl.imshow(im,'gray')
-  # pl.show()
+   cols_to_replace = [833, 1056, 1135, 1762, 1489]
+   for c in cols_to_replace:
+      col_replacement = [int(np.mean([a,b])) for a,b in zip(im[:, c-1],im[:, c+1])]
+      im[:, c] = col_replacement
    return im
+
 
 def validate_timing(times):
     delta_gen = toolz.itertoolz.sliding_window(2,times)
@@ -143,11 +142,12 @@ def timegenerator(times):
 #This function makes all paramecia and fish 255 white. Tested 3 different ways to improve contrast of paramecia. gaussian blur with 15,15 parameter was the most effective and fastest, but kept commented boxfiltering and scipy gauss for history and in case of future failure of GaussianBlur.
 
 def imcont(image,rangemax,hardthresh):
+#  gf_im = cv2.GaussianBlur(image,(3,3), 0)
   r,th = cv2.threshold(image,rangemax,255,cv2.THRESH_TRUNC) #this now maxes out the image at max without stretching dynamic range (i.e. 26 in image is 26 in th if max > 26. everything over max is set to 255). 
   adj = ((255/float(rangemax)) * th).astype(np.uint8) #now stretch dynamic range so that your max is 255, and distance from max is linearly represented. this stretches the range so your choice of threshold is less important.  
 #  bf = cv2.boxFilter(adj, -1, (5,5)) #filter twice to get rid of noise that could be picked as a para. 
   #bf = scipy.ndimage.filters.gaussian_filter(adj, 5)
-  bf = cv2.GaussianBlur(adj,(15,15), 0)
+  bf = cv2.GaussianBlur(adj,(7,7), 0)
   r,th2 = cv2.threshold(bf, hardthresh, 255, cv2.THRESH_BINARY) #now set a hard threshold. your choice here is made easier by your spread of the dynamic range
   th2_c = cv2.cvtColor(th2.astype(np.uint8), cv2.COLOR_GRAY2RGB)
   return th2_c
@@ -199,10 +199,10 @@ def run_flparse(data_directory):
         top_ir_backgrounds = []
         side_ir_backgrounds = []
         startframe = 0
-        endframe = int(framecount)
-       # endframe = 200
+#        endframe = int(framecount)
+        endframe = 3000
         createbackground = True
-        getfishdata = True
+        getfishdata = False
 
 
         # FIRST MAKE BACKGROUND ARRAYS. WILL NEED THEM FOR PHINAL_IR AND HIGH CONTRAST STREAM GENERATION. 

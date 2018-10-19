@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -n 4
+#SBATCH -n 11
 #SBATCH -N 1
 #SBATCH -t 3600
 #SBATCH -p general
