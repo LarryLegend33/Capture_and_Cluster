@@ -147,7 +147,7 @@ def imcont(image,rangemax,hardthresh):
   adj = ((255/float(rangemax)) * th).astype(np.uint8) #now stretch dynamic range so that your max is 255, and distance from max is linearly represented. this stretches the range so your choice of threshold is less important.  
 #  bf = cv2.boxFilter(adj, -1, (5,5)) #filter twice to get rid of noise that could be picked as a para. 
   #bf = scipy.ndimage.filters.gaussian_filter(adj, 5)
-  bf = cv2.GaussianBlur(adj,(7,7), 0)
+  bf = cv2.GaussianBlur(adj,(5,5), 0)
   r,th2 = cv2.threshold(bf, hardthresh, 255, cv2.THRESH_BINARY) #now set a hard threshold. your choice here is made easier by your spread of the dynamic range
   th2_c = cv2.cvtColor(th2.astype(np.uint8), cv2.COLOR_GRAY2RGB)
   return th2_c
@@ -179,8 +179,8 @@ def run_flparse(data_directory):
         frame_types, frame_counts, frequencies = get_frametypes(dict_file)
         print(frame_counts)
         ir_br_frames_to_take, mode_index = br_boundaries(frame_counts,frequencies)
-        contrast_params_top = [30,38] #play with these params if contrast is not good. but works for now. 
-        contrast_params_side = [30,40] 
+        contrast_params_top = [30,60] #play with these params if contrast is not good. but works for now. 
+        contrast_params_side = [30,50] 
  #         fourcc2 = cv2.cv.CV_FOURCC('M','J','P','G')
         #fourcc2 = 0
         fourcc2 = cv2.VideoWriter_fourcc(*'MJPG')
@@ -199,8 +199,8 @@ def run_flparse(data_directory):
         top_ir_backgrounds = []
         side_ir_backgrounds = []
         startframe = 0
-#        endframe = int(framecount)
-        endframe = 3000
+        endframe = int(framecount)
+#        endframe = 3000
         createbackground = True
         getfishdata = False
 
