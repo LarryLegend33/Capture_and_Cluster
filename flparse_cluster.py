@@ -77,9 +77,10 @@ def get_frametypes(dict_file):
 
 def br_boundaries(counts, frequencies):
 
-#take one frame every two seconds for the mode. modes should be calculated every 30 seconds. 
+#take one frame every two seconds for the mode. modes should be calculated every 30 seconds.
+# use 30 for high freq zebrafish movies, 120 for cave fish
     br_interval = 2
-    mode_interval = 30
+    mode_interval = 120
     cumulative_counts = np.cumsum(counts)
     frames_for_br = []
     mode_frames = []
@@ -88,9 +89,10 @@ def br_boundaries(counts, frequencies):
         if epoch_id == 0:
             temp_frames_br = range(0, framecount,
                                    int(frequencies[epoch_id])*br_interval)
-     #every 10 for temp_frames, every 150 for mode if 5 hz. every 1860 , 124 for high freq.  
-            mode_indices =  range(0, framecount,
-                                  int(frequencies[epoch_id])*mode_interval)
+        # every 10 for temp_frames, every 150
+        # for mode if 5 hz. every 1860 , 124 for high freq.
+            mode_indices = range(0, framecount,
+                                 int(frequencies[epoch_id])*mode_interval)
         else:
             temp_frames_br = range(cumulative_counts[epoch_id-1], framecount,
                                    int(frequencies[epoch_id])*br_interval)

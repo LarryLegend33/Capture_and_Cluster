@@ -20,239 +20,190 @@ import seaborn
 
 
 class Variables:
+    def __init__(self):
+        self.pitch = []
+        self.phileft = []
+        self.phiright = []
+        self.leftxy = []
+        self.rightxy = []
+        self.tailangle = []
+        self.headingangle = []
+        self.swimbcoords_top = []
+        self.swimbcoords_side = []
+        self.x = []
+        self.y = []
+        self.z = []
+        self.x2 = []
+        self.vectV = []
+        self.frametimes = []
+        self.bouttimes = []
+        self.hunt_inds = []
+        self.abort_inds = []
+        self.low_res_x = []
+        self.low_res_y = []
+        self.low_res_z = []
 
- def __init__(self):
-     self.pitch = []
-     self.phileft = []
-     self.phiright = []
-     self.leftxy = []
-     self.rightxy = []
-     self.tailangle = []
-     self.headingangle = []
-     self.swimbcoords_top = []
-     self.swimbcoords_side = []
-     self.x = []
-     self.y = []
-     self.z = []
-     self.x2 = []
-     self.vectV = []
-     self.frametimes = []
-     self.bouttimes = []
-     self.hunt_inds = []
-     self.abort_inds = []
-     self.low_res_x = []
-     self.low_res_y = []
-     self.low_res_z = []
+   # Simple function that replaces NaNs in data with previous non-nan value. 
 
-#Simple function that replaces NaNs in data with previous non-nan value. 
+    def infer(self, array):
+        # this just makes a run of all zeros if the data is missing at the beginning. 
+        if math.isnan(array[0]):
+            array[0] = 0
+        for k in range(len(array)):
+            if not math.isnan(array[k]):
+                pass
+            elif math.isnan(array[k]):
+                array[k] = array[k-1]
+        return array
 
- def infer(self,array): #make this more complex. for now just doing it to avoid holes in data. 
-    if math.isnan(array[0]): #this just makes a run of all zeros if the data is missing at the beginning. 
-      array[0] = 0          
-    for k in range(len(array)):
-      if not math.isnan(array[k]):
-         pass
-      elif math.isnan(array[k]):
-         array[k] = array[k-1]
-    return array
+   # NaN Replacement then Filtering of Data using a specified Gaussian window. 
 
-#NaN Replacement then Filtering of Data using a specified Gaussian window. 
+    def data_filter(self, array, window):
+        inferred_array = self.infer(array)
+        filt_array = scipy.ndimage.filters.gaussian_filter(
+         inferred_array, window)
+        return filt_array
 
- def data_filter(self,array,window):
-   inferred_array = self.infer(array)
-   filt_array = scipy.ndimage.filters.gaussian_filter(inferred_array,window)
-   return filt_array
+   # This funciton is for plotting the Z-trajectories of fish after the initiation of a bout. 
 
-#This funciton is for plotting the Z-trajectories of fish after the initiation of a bout. 
+    def plotinterbout_z(self):
+        bout_windows = toolz.itertoolz.sliding_window(2, self.bouttimes)
+        z_endposition = []
+        for start, end in bout_windows:
+            zplot = np.array(self.z[start:end]) - self.z[start]
+            z_endposition.append(zplot[-1])
+            pl.plot(zplot)
+        pl.show()
+        return z_endposition
 
- def plotinterbout_z(self):
-   bout_windows = toolz.itertoolz.sliding_window(2,self.bouttimes)
-   z_endposition = []
-   for start,end in bout_windows:
-     zplot = np.array(self.z[start:end]) - self.z[start]
-     z_endposition.append(zplot[-1])
-     pl.plot(zplot)
-   pl.show()
-   return z_endposition
+   #This function plots the Z-trajectory of the fish between the initiation of a hunt and the abort of the hunt. 
 
-#This function plots the Z-trajectory of the fish between the initiation of a hunt and the abort of the hunt. 
+    def hunt_z(self):
+        abort_inds = self.abort_inds if self.abort_inds[
+         0] < self.hunt_inds[0] else self.abort_inds[1:]
+        hunt_windows = zip(self.hunt_inds, self.abort_inds)
+        z_endposition_hunt = []
+        z_endposition_abort = []
+        pathduration = []
+        for start, end in hunt_windows:
+            zplot = np.array(self.z[start:end]) - self.z[start]
+            z_endposition_hunt.append(zplot[-1])
+            pathduration.append(len(zplot))
+            pl.plot(zplot)
+        pl.show()
+        avgpathduration = int(np.median(pathduration))
+        for abort_start in abort_inds:
+            if abort_start+avgpathduration < len(self.z):
+                zplot_abort = np.array(
+                 self.z[
+                  abort_start:
+                  abort_start+avgpathduration]) - self.z[abort_start]
+                z_endposition_abort.append(zplot_abort[-1])
+        return z_endposition_hunt, z_endposition_abort
 
- def hunt_z(self):
-   hunt_inds = self.hunt_inds
-   abort_inds = self.abort_inds if self.abort_inds[0] < self.hunt_inds[0] else self.abort_inds[1:]
-   hunt_windows = zip(self.hunt_inds,self.abort_inds)
-   z_endposition_hunt = []
-   z_endposition_abort = []
-   pathduration = []
-   for start,end in hunt_windows:
-     zplot = np.array(self.z[start:end]) - self.z[start]
-     z_endposition_hunt.append(zplot[-1])
-     pathduration.append(len(zplot))
-     pl.plot(zplot)
-   pl.show()
-   avgpathduration = int(np.median(pathduration))
-   for abort_start in abort_inds:
-    if abort_start+avgpathduration < len(self.z):
-     zplot_abort = np.array(self.z[abort_start:abort_start+avgpathduration]) - self.z[abort_start]
-     z_endposition_abort.append(zplot_abort[-1])
-   return z_endposition_hunt, z_endposition_abort
+   #Important bout detection function. This function first sums up tail angles from each segement. It next calculates the running variance over a length 5 window of the tail angle, then postfilters that variance. Calculates local maxima of the tailvariance and 3D velocity, filtered by comparing values of local maxima to the average minimum variance and velocity. If tailvariance maxima co-localize with vector velocity maxima, bouts are called. 
 
-#Important bout detection function. This function first sums up tail angles from each segement. It next calculates the running variance over a length 5 window of the tail angle, then postfilters that variance. Calculates local maxima of the tailvariance and 3D velocity, filtered by comparing values of local maxima to the average minimum variance and velocity. If tailvariance maxima co-localize with vector velocity maxima, bouts are called. 
+    def findbouts(self):
+        startbouts = []
+        tailanglesum = [np.sum(tailangles) for tailangles in self.tailangle]
+        tailanglesum = self.infer(tailanglesum)
+        vectV = self.data_filter(self.vectV, 5)
+        tailangle_var = [np.var(win) for win
+                         in toolz.itertoolz.sliding_window(
+                          5, tailanglesum)]
+        tailangle_var = self.data_filter(tailangle_var, 5)
+        # this calculates the average minimum value of the tailangle trace over time. 
+        tailangle_rms = np.median(
+         [tailangle_var[ind] for ind in scipy.signal.argrelmin(
+          np.array(tailangle_var), order=10)])
+        print('rms tail')
+        print(tailangle_rms)
+        # local max calculation where previous 10 values have to be smaller,
+        # next 10 have to be smaller.
+        # data type is a tuple so you have to index it.
+        tailangle_localmax, = scipy.signal.argrelmax(
+         np.array(tailangle_var), order=10)
+        tailangle_localmax_rms_thresh = [ind for ind in
+                                         tailangle_localmax
+                                         if tailangle_var[ind]
+                                         > 5*tailangle_rms]
+        velocity_localmax, = scipy.signal.argrelmax(
+         np.array(vectV), order=10)
+        velocity_localmin, = scipy.signal.argrelmin(
+         np.array(vectV), order=10)
+        velocity_rms = np.median([vectV[low] for low in velocity_localmin])
+        # this calculates the average minimum value of the velocity trace over time. 
+        velocity_localmax_rms_thresh = [vel_ind for vel_ind in
+                                        velocity_localmax if vectV[vel_ind] > 2*velocity_rms]
+        # Assigns index as a bout if the peak velocity occurs
+        # inside a 15 frame window of the peak tailangle (5 before, 10 after).
+        for tailmax in tailangle_localmax_rms_thresh:
+            comprange = range(tailmax-5, tailmax+10)
+            for velmax in velocity_localmax_rms_thresh:
+                if velmax in comprange:
+                    startbouts.append(tailmax)
+                    break #stops from having two local velocity max in window. 
+        fig = pl.figure()
+        ax = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
+        ax.plot(startbouts, np.zeros(len(startbouts)),
+                marker='.', ms=20, color='r')
+        ax.plot(vectV)
+        ax2.plot(startbouts, np.zeros(len(startbouts)),
+                 marker='.', ms=20, color='r')
+        ax2.plot(tailanglesum)
+        pl.show()
+        self.bouttimes = startbouts
 
- def findbouts(self):
-   startbouts = []
-   tailanglesum = [np.sum(tailangles) for tailangles in self.tailangle]
-   tailanglesum = self.infer(tailanglesum)
-   vectV = self.data_filter(self.vectV,5)
-   tailangle_var = [np.var(win) for win in toolz.itertoolz.sliding_window(5,tailanglesum)]
-   tailangle_var = self.data_filter(tailangle_var,5)   
-   tailangle_rms = np.median([tailangle_var[ind] for ind in scipy.signal.argrelmin(np.array(tailangle_var), order = 10)]) #this calculates the average minimum value of the tailangle trace over time. 
-   print('rms tail')
-   print(tailangle_rms)
-   tailangle_localmax, = scipy.signal.argrelmax(np.array(tailangle_var), order = 10) #local max calculation where previous 10 values have to be smaller, next 10 have to be smaller. data type is a tuple so you have to index it. 
-   tailangle_localmax_rms_thresh = [ind for ind in tailangle_localmax if tailangle_var[ind] > 5*tailangle_rms] 
-   velocity_localmax, = scipy.signal.argrelmax(np.array(vectV), order = 10)
-   velocity_localmin, = scipy.signal.argrelmin(np.array(vectV), order = 10)
-   velocity_rms = np.median([vectV[low] for low in velocity_localmin])
-#this calculates the average minimum value of the velocity trace over time. 
-   print(np.median(vectV))
-   print(velocity_rms)
-   velocity_localmax_rms_thresh = [vel_ind for vel_ind in velocity_localmax if vectV[vel_ind] > 2*velocity_rms]
-#Assigns index as a bout if the peak velocity occurs inside a 15 frame window of the peak tailangle (5 before, 10 after). 
-   for tailmax in tailangle_localmax_rms_thresh:
-       comprange = range(tailmax-5,tailmax+10)
-       for velmax in velocity_localmax_rms_thresh:
-         if velmax in comprange:
-           startbouts.append(tailmax)
-           break #stops from having two local velocity max in window. 
-   fig = pl.figure()
-   ax = fig.add_subplot(121)
-   ax2 = fig.add_subplot(122)
-   ax.plot(startbouts,np.zeros(len(startbouts)),marker = '.', ms = 20, color = 'r')
-   ax.plot(vectV)
-   ax2.plot(startbouts,np.zeros(len(startbouts)),marker = '.', ms = 20, color = 'r')
-   ax2.plot(tailanglesum)
-   pl.show()
-   self.bouttimes = startbouts
+    #calculates x,y and vectV after all data from video has been extracated. call this yourself at any time. x and y is calculated by the average of the 2 eyes. z has already been calculated as the location of the fish's head. 
 
- #calculates x,y and vectV after all data from video has been extracated. call this yourself at any time. x and y is calculated by the average of the 2 eyes. z has already been calculated as the location of the fish's head. 
+    def fillin_and_fix(self):
+        for lxy,rxy in zip(self.leftxy, self.rightxy):
+            self.x.append(np.mean([lxy[0], rxy[0]]))
+            self.y.append(np.mean([lxy[1], rxy[1]]))
+        deltax = [b-a for a, b in toolz.itertoolz.sliding_window(2, self.x)]
+        deltay = [b-a for a, b in toolz.itertoolz.sliding_window(2, self.y)]
+        deltaz = [b-a for a, b in toolz.itertoolz.sliding_window(2, self.z)]
+        deltat = [b-a for a, b in
+                  toolz.itertoolz.sliding_window(2, self.frametimes)]
+        for x, y, z, t in zip(deltax, deltay, deltaz, deltat):
+            if math.isnan(x) or math.isnan(y) or math.isnan(z) or math.isnan(t):
+                self.vectV.append(float('nan'))
+            else:
+                vect = np.array([x, y, z])
+                self.vectV.append(np.sqrt(np.dot(vect, vect))/t)
+        self.y = [1888 - ycoord for ycoord in self.y]
+        self.z = [1888 - zcoord for zcoord in self.z]
+        self.leftxy = [[xc, 1888-yc] for (xc, yc) in self.leftxy]
+        self.rightxy = [[xc, 1888-yc] for (xc, yc) in self.rightxy]
 
- def fillin_and_fix(self): 
-    for lxy,rxy in zip(self.leftxy,self.rightxy):
-      self.x.append(np.mean([lxy[0],rxy[0]]))
-      self.y.append(np.mean([lxy[1],rxy[1]]))
-    deltax = [b-a for a,b in toolz.itertoolz.sliding_window(2,self.x)]
-    deltay = [b-a for a,b in toolz.itertoolz.sliding_window(2,self.y)]
-    deltaz = [b-a for a,b in toolz.itertoolz.sliding_window(2,self.z)]
-    deltat = [b-a for a,b in toolz.itertoolz.sliding_window(2,self.frametimes)]
-    for x,y,z,t in zip(deltax,deltay,deltaz,deltat):
-      if math.isnan(x) or math.isnan(y) or math.isnan(z) or math.isnan(t):
-       self.vectV.append(float('nan'))
-      else:   
-       vect = np.array([x,y,z])
-       self.vectV.append(np.sqrt(np.dot(vect,vect))/t)
-    self.y = [1888 - ycoord for ycoord in self.y]
-    self.z = [1888 - zcoord for zcoord in self.z]
-    self.leftxy = [[xc,1888-yc] for (xc,yc) in self.leftxy]
-    self.rightxy = [[xc,1888-yc] for (xc,yc) in self.rightxy]
+   #Nanify adds nan to member lists of Varbs objects when the algoritm doesn't find a value. Specific length lists of nans are added depending on the member list. 
+    def nanify(self, arglist):
+        for arg in arglist:
+            if arg == 'leftxy' or arg == 'rightxy' or arg == 'swimbcoords_top' or arg == 'swimbcoords_side':
+                getattr(self, arg).append([float('NaN'), float('NaN')])
+            elif arg == 'tailangle':
+                getattr(self, arg).append([float('NaN'), float('NaN'),
+                                          float('NaN'), float('NaN'),
+                                          float('NaN'), float('NaN'), float('NaN')])
+            else:
+                getattr(self, arg).append(float('NaN'))
 
-#Another extremely important function. This function first plots a histogram of the sum of the two eye angles. It then prompts the user to decide which local minima on this tailsum separates typical swimming from hunting. The user enters the degrees of the local minima of a KDE plot, and the program assigns values above this local minima as non-hunting while frames containing a summed eye angle above that state are hunting. 
+   #This method just pickles Varbs objects and saves them as a file.       
+    def exporter(self, dr):
+        with open(dr + 'fishdata.pkl', 'wb') as file:
+            pickle.dump(self, file)
 
- def preycapfinder(self): 
-   pl.ion()
-   fig = pl.figure(figsize = (20,30))
-   ax = fig.add_subplot(211)
-   ax.set_title('Phi Total')
-   ax2 = fig.add_subplot(212)  
-   ax2.set_title('KDE')
-   ax.set_ylim(-10,100)  
-   hunt_inds = []
-   abort_inds = []
-   window_len = 20
-   threshold_hunt_length = 12
-   deltat = [b-a for a,b in toolz.itertoolz.sliding_window(2,self.frametimes)]  
-   nan_window = [float('nan') for i in range(window_len)]
-   phiright = self.data_filter(self.phiright,5)
-   phileft = self.data_filter(self.phileft,5)
-   phitotal = [a+b if a+b > 0 else float('nan') for a,b in zip(phiright,phileft)]
-   phitotal = self.data_filter(phitotal,5)
-   #reduce the bandwidth dynamically if you need to
-   for val in phitotal:
-     if math.isnan(val):
-       print('found nan')
-   kde = KernelDensity(kernel = 'gaussian', bandwidth = 2).fit(phitotal[:,np.newaxis])
-   phiplot = np.linspace(0,100,1000)[:,np.newaxis]
-   # KDE IS A 2D PLOT WHERE YOU TELL THE KDE AN XY POSITION FOR EACH KERNEL. HISTOGRAMS CAN BE THOUGHT OF AS A BLOCK OF SPACE WITH UNIT HEIGHT AND AN XY POINT STACKED ON EACH OTHER. 
-   bins = np.linspace(0,100,10)
-   logdens = kde.score_samples(phiplot)
-   model = np.exp(logdens)
-   ax.plot(phitotal)
-   ax2.plot(phiplot[:,0],model)
-   pl.show() 
-   pl.draw()  
-   localmin,  = scipy.signal.argrelmin(model, order = 50)
-   localmax,  = scipy.signal.argrelmax(model, order = 50)
-   mins = [phiplot[:,0][mn] for mn in localmin]
-   print('local minima')
-   print(mins)
-   maxes = [phiplot[:,0][mx] for mx in localmax]
-   print('local maxima')
-   print(maxes)
-   cutoff = float(raw_input('Enter Cutoff Value: '))
-   binary_eyeconvergence = [1 if phi > cutoff else 0 for phi in phitotal]
-#Window_len is 20, so binary_window represents a 20 length window over binary_eyeconvergence as each value. 
-   binary_window = toolz.itertoolz.sliding_window(window_len,binary_eyeconvergence)
-   hunt_inds = []
-   abort_inds = []
-
-#for a hunt initiation to be called, has to be a string of 10 0s followed by a string of 10 1s. Vice versa for aborts. 
-   for ind,win in enumerate(binary_window):
-     win = np.array(win)
-     firsthalf = win[0:len(win)/2]
-     secondhalf = win[len(win)/2:]
-     if not firsthalf.any() and secondhalf.all() and len(hunt_inds) == len(abort_inds): #doesnt allow a hunt without an abort:
-       hunt_inds.append(ind)
-     if not secondhalf.any() and firsthalf.all() and len(abort_inds) < len(hunt_inds):
-       abort_inds.append(ind)   
-
-   for hi,ai in zip(hunt_inds,abort_inds):
-       if ai-hi < threshold_hunt_length:      #i.e. hunt lasts for only ~200ms
-           hunt_inds.remove(hi)
-           abort_inds.remove(ai)
-
-   ax.plot(hunt_inds,np.zeros(len(hunt_inds)),marker = '.', ms = 20, color = 'r')
-   ax.plot(abort_inds,np.zeros(len(abort_inds)),marker = '.', ms = 20, color = 'k')
-   pl.draw()
-   self.hunt_inds = hunt_inds  
-   self.abort_inds = abort_inds
-   pl.ioff()
-
-
-#Nanify adds nan to member lists of Varbs objects when the algoritm doesn't find a value. Specific length lists of nans are added depending on the member list. 
- def nanify(self, arglist):
-   for arg in arglist:
-     if arg == 'leftxy' or arg == 'rightxy' or arg == 'swimbcoords_top' or arg == 'swimbcoords_side':
-      getattr(self,arg).append([float('NaN'),float('NaN')])
-     elif arg == 'tailangle':
-      getattr(self,arg).append([float('NaN'),float('NaN'),float('NaN'),float('NaN'),float('NaN'), float('NaN'), float('NaN')])
-     else:
-      getattr(self,arg).append(float('NaN'))
-
-#This method just pickles Varbs objects and saves them as a file.       
- def exporter(self, dr):
-    with open(dr + 'fishdata.pkl','wb') as file:
-      pickle.dump(self,file)
-   
 
 
 #FUNCTIONS FOR MAIN TO USE. 
 
 #Backgrounds are provided from flparse2 as an array. Brmean subtraction makes it so the average intensity of a given image is equated to the background. 
 
-def brsub((ret,im),background,brmean):
-  img = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-  br_sub = cv2.absdiff((brmean/np.mean(img)*img).astype(np.uint8),background)
-  return br_sub
+def brsub((ret, im), background, brmean):
+    img = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    br_sub = cv2.absdiff((brmean/np.mean(img)*img).astype(np.uint8),background)
+    return br_sub
 
 
 #Contourfinder finds the three largest contours in the top plane (eye1, eye2, swimb) by dynamically thresholding each background subtracted image. The dynamic thresholding is accomplished by recursively passing lower values of the threshval to contourfinder if 3 contours are not found. On the side, recursively decreases threshval until one contour is found that is approximately the size of an eye. Current byarea parameters are good for the 1888x1888 setup.  
