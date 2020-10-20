@@ -43,16 +43,31 @@ def get_frametypes(dict_file):
 # provide fl_interval in seconds (ie one frame ever 10 sec),
 # ir_freq for acquisition in hz. duration of epoch in minutes.
 # for each, the total number of frames will be duration*60*ir_freq.
+    fl_dwell = .2
+    
+    def frames_in_epoch(params):
+        framecount = 0
+        ir_frame_count = params[1]*60*params[2]
+        if not params[0]:
+            framecount = ir_frame_count
+        else:
+            ir_frames_per_fl_frame = fl_dwell / (1/params[2])
+            fl_frame_count = params[1]*60*params[3]
+            framecount = ir_frame_count - ((ir_frames_per_fl_frame - 1) * fl_frame_count)
+        return framecount
 
-    def assign_frames(fluor, duration, ir_freq, fl_interval):
+    def assign_frames(fluor, ep_dur, ir_freq, fl_freq):
         temp_framelist = []
         #fl_count is directly related to ir_freq. 
-        fl_count = int(ir_freq*fl_interval)
-        numframes = int(duration*60*ir_freq)
+        ir_frames_per_fl_frame = fl_dwell / (1/ir_freq)
+        fl_frame_modulus = (1 / fl_freq) * ir_freq - ir_frames_per_fl_frame + 1
+    # 1/fl_freq seconds pass between fl frames. in this time, the following number of frames are taken. add 1 b/c fl frame is taken in place of an ir frame.
+    
+        numframes = frames_in_epoch([fluor, ep_dur, ir_freq, fl_freq])
         if fluor:
             count = 0
             for framecount in range(numframes):
-                if count % fl_count == 0:
+                if count % fl_frame_modulus == 0:
                     temp_framelist.append(1)
                 else:
                     temp_framelist.append(0)
@@ -63,16 +78,16 @@ def get_frametypes(dict_file):
 #0 for ir, 1 for fl
 
     frametypes = []
-    frames_in_epoch = []
+    frames_in_ep = []
     ir_freq_in_epoch = []
     exp_dict = eval(dict_file.readline())
     for epoch, entry in enumerate(exp_dict):
         types, total_frames, ir_freq = assign_frames(
            *exp_dict['epoch' + str(epoch+1)])
         frametypes += types
-        frames_in_epoch.append(total_frames)
+        frames_in_ep.append(total_frames)
         ir_freq_in_epoch.append(ir_freq)
-    return frametypes, frames_in_epoch, ir_freq_in_epoch
+    return frametypes, frames_in_ep, ir_freq_in_epoch
 
 
 def br_boundaries(counts, frequencies):
