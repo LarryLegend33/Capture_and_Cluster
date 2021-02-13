@@ -88,19 +88,19 @@ def frames_in_epoch(params):
     if not params[0]:
         framecount = ir_frame_count
     else:
-        ir_frames_per_fl_frame = fl_dwell / (1/params[2])
+        ir_frames_per_fl_frame = fl_dwell / (1.0/params[2])
         fl_frame_count = params[1]*60*params[3]
         framecount = ir_frame_count - ((ir_frames_per_fl_frame - 1) * fl_frame_count)
-    return framecount
+    return int(framecount)
 
 
 
 def flash(fluor, ep_dur, ir_freq, fl_freq):
     ir_sleep = 1.0/ir_freq - (ir_dwell + .001)
     numframes = frames_in_epoch([fluor, ep_dur, ir_freq, fl_freq])
-    ir_frames_per_fl_frame = fl_dwell / (1/ir_freq)
+    ir_frames_per_fl_frame = fl_dwell / (1.0/ir_freq)
     # 1/fl_freq seconds pass between fl frames. in this time, the following number of frames are taken. add 1 b/c fl frame is taken in place of an ir frame. 
-    fl_frame_modulus = (1 / fl_freq) * ir_freq - ir_frames_per_fl_frame + 1
+    fl_frame_modulus = (1.0 / fl_freq) * ir_freq - ir_frames_per_fl_frame + 1
     if fluor:
         ir.high()
         count = 0

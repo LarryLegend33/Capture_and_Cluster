@@ -51,16 +51,16 @@ def get_frametypes(dict_file):
         if not params[0]:
             framecount = ir_frame_count
         else:
-            ir_frames_per_fl_frame = fl_dwell / (1/params[2])
+            ir_frames_per_fl_frame = fl_dwell / (1.0/params[2])
             fl_frame_count = params[1]*60*params[3]
             framecount = ir_frame_count - ((ir_frames_per_fl_frame - 1) * fl_frame_count)
-        return framecount
+        return int(framecount)
 
     def assign_frames(fluor, ep_dur, ir_freq, fl_freq):
         temp_framelist = []
         #fl_count is directly related to ir_freq. 
-        ir_frames_per_fl_frame = fl_dwell / (1/ir_freq)
-        fl_frame_modulus = (1 / fl_freq) * ir_freq - ir_frames_per_fl_frame + 1
+        ir_frames_per_fl_frame = fl_dwell / (1.0/ir_freq)
+        fl_frame_modulus = (1.0 / fl_freq) * ir_freq - ir_frames_per_fl_frame + 1
     # 1/fl_freq seconds pass between fl frames. in this time, the following number of frames are taken. add 1 b/c fl frame is taken in place of an ir frame.
     
         numframes = frames_in_epoch([fluor, ep_dur, ir_freq, fl_freq])
@@ -100,7 +100,7 @@ def br_boundaries(counts, frequencies):
     frames_for_br = []
     mode_frames = []
     for epoch_id, framecount in enumerate(cumulative_counts):
-        print framecount
+        print(framecount)
         if epoch_id == 0:
             temp_frames_br = range(0, framecount,
                                    int(frequencies[epoch_id])*br_interval)
@@ -317,7 +317,7 @@ def run_flparse(data_directory):
 
         if frame_types[j] == 0:
             if j % 20 == 0:
-              print j
+                print(j)
             img = fix_blackline(img)
             top_avg = np.mean(img)
             side_avg = np.mean(img2)

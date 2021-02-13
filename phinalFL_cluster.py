@@ -105,7 +105,7 @@ class Fluorescence_Analyzer:
                 gutcopy_xy = np.copy(gut_xy)
                 gutcopy_xz = np.copy(gut_xz)
                 ret, thresh_xy = cv2.threshold(
-                  gutcopy_xy, 40, 255, cv2.THRESH_BINARY)
+                  gutcopy_xy, 60, 255, cv2.THRESH_BINARY)
                 rim, contours_xy, hierarchy = cv2.findContours(
                   thresh_xy,
                   cv2.RETR_EXTERNAL,
@@ -175,4 +175,4 @@ def wrap_fluor(dr):
  
 if __name__ == '__main__':
 #    wrap_fluor(os.get_cwd())
-    fl_obj = wrap_fluor('/Users/nightcrawler2/PreycapMaster/020419_1/')
+    fl_obj = wrap_fluor('/Users/nightcrawler2/FluorData/2_2/')

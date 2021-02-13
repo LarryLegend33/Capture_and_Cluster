@@ -196,7 +196,8 @@ class Variables:
 
 #Backgrounds are provided from flparse2 as an array. Brmean subtraction makes it so the average intensity of a given image is equated to the background. 
 
-def brsub((ret, im), background, brmean):
+def brsub(im_tup, background, brmean):
+    ret, im = im_tup
     img = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     br_sub = cv2.absdiff((brmean/np.mean(img)*img).astype(np.uint8),background)
     return br_sub
@@ -260,7 +261,8 @@ def contourfinder(im, threshval, toporside, fishcenter):
 
 
 
-# This function assigns the eye as either the left or the right eye and then converts the angles so that the angle reflects degree of convergence (phi) from the vertical axis. 
+# This function assigns the eye as either the left or the right eye and then converts the angles so that the angle reflects degree of convergence (phi) from the vertical axis.
+
 
 def eyeanglefinder(eye1, eye2, ha, center):
     ha_contour = np.mod(ha-90, 360)
@@ -610,9 +612,9 @@ def get_fish_data(data_directory):
             if k in mode_index:
                 brcounter += 1
 
-    if ir_freq_by_epoch[0] < 10:
-        low_res = True
-        ir_freq_by_epoch = ir_freq_by_epoch[1:]
+    # if ir_freq_by_epoch[0] < 10:
+    #     low_res = True
+    #     ir_freq_by_epoch = ir_freq_by_epoch[1:]
 
     for i in range(startframe, endframe, 1):
 
@@ -624,15 +626,15 @@ def get_fish_data(data_directory):
             brmean_s = np.mean(ir_s_br)
             brcounter += 1 
 
-        if i in epoch_boundaries:
-            if ir_freq_by_epoch[0] < 10:
-                low_res = True
-            else:
-                low_res = False
-            ir_freq_by_epoch = ir_freq_by_epoch[1:]
+        # if i in epoch_boundaries:
+        #     if ir_freq_by_epoch[0] < 10:
+        #         low_res = True
+        #     else:
+        #         low_res = False
+        #     ir_freq_by_epoch = ir_freq_by_epoch[1:]
 
         if i % 20 == 0:
-            print i 
+            print(i)
 
         if frame_types[i] == 1:
             top.read()
