@@ -36,7 +36,7 @@ def validate_timing(times):
     ax2 = fig.add_subplot(122)
     ax2.plot(deltas)
     pl.show()
-    
+
 
 def get_frametypes(dict_file):
 
@@ -92,7 +92,7 @@ def get_frametypes(dict_file):
 
 def br_boundaries(counts, frequencies):
 
-#take one frame every two seconds for the mode. modes should be calculated every 30 seconds.
+# take one frame every two seconds for the mode. modes should be calculated every 30 seconds.
 # use 30 for high freq zebrafish movies, 120 for cave fish
     br_interval = 2
     mode_interval = 120
