@@ -9,6 +9,7 @@ from phinalFL_cluster import Fluorescence_Analyzer
 from astropy.convolution import Gaussian1DKernel, interpolate_replace_nans, convolve
 import seaborn as sb
 import pandas as pd
+import itertools
 
 
 # TODO
@@ -28,6 +29,23 @@ def tsplot(data, ax, **kw):
     ax.margins(x=0)
 
     
+def ts_plot(list_of_lists, ax):
+    fig, ax = pl.subplots(1, 1)
+    index_list = list(
+        itertools.chain.from_iterable(
+            [range(len(arr)) for arr in list_of_lists]))
+    id_list = [(ind*np.ones(len(arr))).tolist() for ind, arr in enumerate(list_of_lists)]
+    ids_concatenated = list(itertools.chain.from_iterable(id_list))
+    #this works if passed np.arrays instead of lists
+    value_list = list(itertools.chain.from_iterable(list_of_lists))
+    df_dict = {'x': index_list, 
+               'y': value_list}
+    df = pd.DataFrame(df_dict)
+    sb.lineplot(data=df, x='x', y='y', ax=ax)
+    pl.show()
+    return df
+    
+
 def fluor_wrapper(drct_lists_by_condition):
 
     def fill_condition_list(drct_list):
@@ -86,10 +104,10 @@ def fluor_wrapper(drct_lists_by_condition):
     # condition. tsplot wants a list of arrays of the same length of the same condition. 
     
     for fl_instance in fl_by_condition_dictlist:
-        tsplot(np.array(fl_instance["Gut Values"]), axes[0, 0])
-        tsplot(np.array(fl_instance["Gut Intensity"]), axes[1, 0])
-        tsplot(np.array(fl_instance["Gut Area"]), axes[0, 1])
-        tsplot(np.array(fl_instance["Lowres GutVals"]), axes[1, 1])
+        ts_plot(np.array(fl_instance["Gut Values"]), axes[0, 0])
+        ts_plot(np.array(fl_instance["Gut Intensity"]), axes[1, 0])
+        ts_plot(np.array(fl_instance["Gut Area"]), axes[0, 1])
+        ts_plot(np.array(fl_instance["Lowres GutVals"]), axes[1, 1])
     pl.show()
     return fl_by_condition_dictlist
 
