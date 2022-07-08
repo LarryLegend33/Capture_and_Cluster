@@ -36,7 +36,7 @@ def validate_timing(times):
     ax2 = fig.add_subplot(122)
     ax2.plot(deltas)
     pl.show()
-
+    
 
 def get_frametypes(dict_file):
 
@@ -90,34 +90,40 @@ def get_frametypes(dict_file):
     return frametypes, frames_in_ep, ir_freq_in_epoch
 
 
-def br_boundaries(counts, frequencies):
+def br_boundaries(frametypes, frequencies, counts):
 
-# take one frame every two seconds for the mode. modes should be calculated every 30 seconds.
+    # counts is the frame count per epoch.
+    # frequencies is the IR freq per epoch
+    # frametypes is 1 for FL 0 for IR per frame over the whole vid
+
+    # cycle through cumulative counts. count frametypes as you cycle
+    # take the frequency of each count. if counter % freq  <= 1 AND
+    # frametype is 0, take the frame.
+
+#take one frame every two seconds for the mode. modes should be calculated every 30 seconds.
 # use 30 for high freq zebrafish movies, 120 for cave fish
-    br_interval = 2
-    mode_interval = 120
+    mode_interval = 30
     cumulative_counts = np.cumsum(counts)
     frames_for_br = []
     mode_frames = []
-    for epoch_id, framecount in enumerate(cumulative_counts):
-        print(framecount)
-        if epoch_id == 0:
-            temp_frames_br = range(0, framecount,
-                                   int(frequencies[epoch_id])*br_interval)
-        # every 10 for temp_frames, every 150
-        # for mode if 5 hz. every 1860 , 124 for high freq.
-            mode_indices = range(0, framecount,
-                                 int(frequencies[epoch_id])*mode_interval)
-        else:
-            temp_frames_br = range(cumulative_counts[epoch_id-1], framecount,
-                                   int(frequencies[epoch_id])*br_interval)
-            mode_indices = range(cumulative_counts[epoch_id-1], framecount,
-                                 int(frequencies[epoch_id])*mode_interval)
 
-        frames_for_br += temp_frames_br
-        mode_frames += mode_indices
-# modeframes shouldn't have 0 as an index.         
-    mode_frames = mode_frames[1:]
+    # cumsum does not start at 0
+    epoch_id = 0
+    ir_modeframes = []
+    for i, ftype in enumerate(frametypes):
+        if i == 0:
+            continue
+        if i == cumulative_counts[epoch_id]:
+            epoch_id += 1
+        freq = frequencies[epoch_id]
+
+        if (i % freq == 0 and ftype == 0) or (
+                i % freq == 1 and ftype == 0 and frametypes[i-1] == 1):
+            ir_modeframes.append(i)
+            if len(ir_modeframes) == mode_interval:
+                mode_frames.append(i)
+                frames_for_br += ir_modeframes
+                ir_modeframes = []
     return frames_for_br, mode_frames
 
 #This function takes the first 4 pixels of the top row of each image and extracts the timestamp in ms. 
@@ -209,19 +215,23 @@ def edgefix(image, x, y, isY):
  
 def run_flparse(data_directory):
     # MAINLINE. FIRST CREATES BACKGROUND ARRAYS, THEN HIGH CONTRAST VIDEOS.
+    print(os.listdir(data_directory))
     cam0id = [file_id for file_id in os.listdir(
-       data_directory) if file_id[-8:] == 'cam0.AVI'][0]
-    cam1id = [file_id for file_id in os.listdir(
        data_directory) if file_id[-8:] == 'cam1.AVI'][0]
-    top = cv2.VideoCapture(data_directory + cam0id)
-    side = cv2.VideoCapture(data_directory + cam1id)
+    cam1id = [file_id for file_id in os.listdir(
+       data_directory) if file_id[-8:] == 'cam0.AVI'][0]
+    top = cv2.VideoCapture(data_directory + cam1id)
+    side = cv2.VideoCapture(data_directory + cam0id)
     dict_file = open(data_directory + 'experiment.txt')
     frame_types, frame_counts, frequencies = get_frametypes(dict_file)
+    print(frame_types)
     print(frame_counts)
-    ir_br_frames_to_take, mode_index = br_boundaries(frame_counts, frequencies)
+    print(frequencies)
+    ir_br_frames_to_take, mode_index = br_boundaries(frame_types, frequencies, frame_counts)
+    print(ir_br_frames_to_take)
     # play with these params if contrast is not good. but works for now. 
-    contrast_params_top = [30, 60]
-    contrast_params_side = [30, 50]
+    contrast_params_top =[30, 60]
+    contrast_params_side = [30,50]
     # fourcc2 = cv2.cv.CV_FOURCC('M','J','P','G')
     # fourcc2 = 0
     fourcc2 = cv2.VideoWriter_fourcc(*'MJPG')
@@ -244,11 +254,11 @@ def run_flparse(data_directory):
     startframe = 0
     endframe = int(framecount)
 #        endframe = 3000
-    createbackground = True
+    createbackground = True #change t true
     getfishdata = True
 
     # FIRST MAKE BACKGROUND ARRAYS. WILL NEED THEM FOR PHINAL_IR AND HIGH CONTRAST STREAM GENERATION. 
-
+   # cv2.namedWindow('test', cv2.WINDOW_KEEPRATIO)
     if createbackground:
         # make sure mode is always a multiple of frames to take.
         for i in ir_br_frames_to_take:
@@ -261,11 +271,14 @@ def run_flparse(data_directory):
             img = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
             img = fix_blackline(img)
             img2 = cv2.cvtColor(im2, cv2.COLOR_BGR2GRAY)
-            if frame_types[i] == 0:
-                print('add_to_ir_temp')
-                print(i)
-                top_ir_temp.append(img)
-                side_ir_temp.append(img2)
+          #  cv2.imshow('test', img)
+          #  print('yo man')
+          #  cv2.resizeWindow('test', 400, 400)
+          #  cv2.waitKey(0)
+            print('add_to_ir_temp')
+            print(i)
+            top_ir_temp.append(img)
+            side_ir_temp.append(img2)
 
           # take a mode if i is in the mode_index list (i.e. times where you should take a mode)
 
@@ -274,6 +287,13 @@ def run_flparse(data_directory):
                                                       np.zeros([1888, 1888])))
                 side_ir_backgrounds.append(calc_median(side_ir_temp,
                                                        np.zeros([1888, 1888])))
+
+              #  print(top_ir_backgrounds[-1])
+              #  cv2.imshow('test', top_ir_backgrounds[-1].astype(np.uint8))
+              #  print('yo man')
+              #   print(top_ir_backgrounds[-1].shape)
+              #   cv2.resizeWindow('test', 400, 400)
+              #   cv2.waitKey(0)
                 print('after modes')
                 print(i)
                 top_ir_temp = []
@@ -302,8 +322,14 @@ def run_flparse(data_directory):
     brcounter = 0 
     for j in range(startframe, endframe, 1):
         if (j in mode_index) or j == 0:
-            ir_t_br = top_ir_backgrounds[brcounter].astype(np.uint8)
-            ir_s_br = side_ir_backgrounds[brcounter].astype(np.uint8)
+            try:
+                ir_t_br = top_ir_backgrounds[brcounter].astype(np.uint8)
+            except IndexError:
+                ir_t_br = top_ir_backgrounds[-1].astype(np.uint8)
+            try:
+                ir_s_br = side_ir_backgrounds[brcounter].astype(np.uint8)
+            except IndexError:
+                ir_s_br = side_ir_backgrounds[-1].astype(np.uint8)
             brmean_top = np.mean(ir_t_br)
             brmean_side = np.mean(ir_s_br)
             brcounter += 1
@@ -314,7 +340,7 @@ def run_flparse(data_directory):
         ret, im2 = side.read()
         img = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         img2 = cv2.cvtColor(im2, cv2.COLOR_BGR2GRAY)
-
+       #  cv2.namedWindow('test', cv2.WINDOW_KEEPRATIO)
         if frame_types[j] == 0:
             if j % 20 == 0:
                 print(j)
@@ -333,6 +359,10 @@ def run_flparse(data_directory):
             img2_contrasted = imcont(side_brsub,
                                      contrast_params_side[0],
                                      contrast_params_side[1])
+            #cv2.imshow('test', img_contrasted)
+            #print('yo man')
+            #cv2.resizeWindow('test', 800, 800)
+            #cv2.waitKey(0)
             top_contrasted.write(img_contrasted)
             side_contrasted.write(img2_contrasted)
 
@@ -375,4 +405,4 @@ def run_flparse(data_directory):
         # make a linspace for each epoch. it'll be a 0:numframesinepoch by ir frequency. it'll take an ir image at every vale in the linspace. it'll take a mode every time there have been freq*30 entries. every time it hits a freq/2 entry, put that frame value in a list so that the background subtraction during contour finding knows at which frame to switch backgrounds to the next background. 
 
 if __name__ == "__main__":
-    run_flparse(os.getcwd() + '/')
+    run_flparse(os.getcwd() + '/Fish49_9/') #run_flparse(os.getcwd() + '/111621_04/') to run locally

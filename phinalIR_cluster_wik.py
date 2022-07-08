@@ -565,10 +565,10 @@ def get_fish_data(data_directory):
     fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
     cam0id = [
         file_id for file_id in os.listdir(data_directory) if file_id[-8:]
-        == 'cam0.AVI'][0]
+        == 'cam1.AVI'][0]
     cam1id = [
         file_id for file_id in os.listdir(data_directory) if file_id[-8:]
-        == 'cam1.AVI'][0]
+        == 'cam0.AVI'][0]
     top = cv2.VideoCapture(data_directory + cam0id)
     side = cv2.VideoCapture(data_directory + cam1id)
     tailvid = cv2.VideoCapture(data_directory + 'top_contrasted.AVI')
@@ -619,8 +619,14 @@ def get_fish_data(data_directory):
     for i in range(startframe, endframe, 1):
 
         if i == 0 or i in mode_index:
-            ir_t_br = top_ir_backgrounds[brcounter].astype(np.uint8)
-            ir_s_br = side_ir_backgrounds[brcounter].astype(np.uint8)
+            try:
+                ir_t_br = top_ir_backgrounds[brcounter].astype(np.uint8)
+            except IndexError:
+                ir_t_br = top_ir_backgrounds[-1].astype(np.uint8)
+            try:
+                ir_s_br = side_ir_backgrounds[brcounter].astype(np.uint8)
+            except IndexError:
+                ir_t_br = side_ir_backgrounds[-1].astype(np.uint8)
             # normalize each frame to the mean of background
             brmean_t = np.mean(ir_t_br)
             brmean_s = np.mean(ir_s_br)
@@ -834,5 +840,6 @@ def wrap_ir(dr):
    
 if __name__ == '__main__':
     dr = raw_input("Enter Directory of Data: ")
-#    dr = os.getcwd() + '/'
+    #dr = os.getcwd() + '/'
+    #dr = os.getcwd() + '/112421_05/'
     wrap_ir(dr)
